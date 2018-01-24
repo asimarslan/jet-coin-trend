@@ -44,7 +44,11 @@ public class JetCoinTrend {
             }
         });
 
-        ProcessorMetaSupplier psTwitter = ProcessorMetaSupplier.dontParallelize(new TwitterSource("key", "secret", "token", "secret"));
+        TwitterSource twitterSource = new TwitterSource("a",
+                "v",
+                "c",
+                "d");
+        ProcessorMetaSupplier psTwitter = ProcessorMetaSupplier.dontParallelize(twitterSource);
 
         DAG dag = new DAG();
         dag.newVertex("twitter", psTwitter);
@@ -56,7 +60,7 @@ public class JetCoinTrend {
                     @Override
                     protected boolean tryProcess(int ordinal, Object item) {
                         if (ordinal == 0) {
-                            return tryEmit(1 + " twitter");
+                            return tryEmit(item);
                         } else {
                             return tryEmit(2 + " reddit");
                         }
@@ -81,7 +85,7 @@ public class JetCoinTrend {
             // Check the results
             IStreamList<Object> list = jet.getList("counts");
 
-            Thread.sleep(2000);
+            Thread.sleep(30000);
             list.stream().forEach(System.out::println);
         } finally {
             Jet.shutdownAll();
