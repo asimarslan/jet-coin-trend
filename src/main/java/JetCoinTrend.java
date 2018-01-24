@@ -18,31 +18,8 @@ import static com.hazelcast.jet.Traversers.traverseStream;
 public class JetCoinTrend {
     public static void main(String[] args) throws Exception {
 
-        ProcessorMetaSupplier psReddit = ProcessorMetaSupplier.dontParallelize(new ProcessorSupplier() {
-            @Override
-            public Collection<? extends Processor> get(int count) {
-                AbstractProcessor abstractProcessor = new AbstractProcessor() {
-
-                    private Stream<String> stream;
-
-                    @Override
-                    protected void init(Context context) throws Exception {
-                        super.init(context);
-                        stream = Stream.generate(() -> "reddit string");
-                    }
-
-
-                    @Override
-                    public boolean complete() {
-
-                        return emitFromTraverser(traverseStream(stream));
-                    }
-
-                };
-                return Collections.singleton(abstractProcessor);
-
-            }
-        });
+        RedditSource redditSource = new RedditSource("a", "b", "c", "d");
+        ProcessorMetaSupplier psReddit = ProcessorMetaSupplier.dontParallelize(redditSource);
 
         TwitterSource twitterSource = new TwitterSource("a",
                 "v",
@@ -62,7 +39,7 @@ public class JetCoinTrend {
                         if (ordinal == 0) {
                             return tryEmit(item);
                         } else {
-                            return tryEmit(2 + " reddit");
+                            return tryEmit(item);
                         }
 
                     }
