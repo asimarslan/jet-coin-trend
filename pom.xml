@@ -4,8 +4,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>sancar</groupId>
-    <artifactId>projectx</artifactId>
+    <groupId>com.hazelcast.jet</groupId>
+    <artifactId>cryptocurrency-realtime-trend</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
@@ -81,21 +81,9 @@
 
     <repositories>
         <repository>
-            <id>10</id>
-            <url>https://jcenter.bintray.com</url>
-        </repository>
-        <repository>
             <id>snapshot-repository</id>
             <name>Maven2 Snapshot Repository</name>
             <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </repository>
-        <repository>
-            <id>main-repo</id>
-            <url>http://repo1.maven.org/maven2/</url>
-        </repository>
-        <repository>
-            <id>backup-repo</id>
-            <url>http://repo2.maven.org/maven2/</url>
         </repository>
         <repository>
             <id>release-repository</id>
