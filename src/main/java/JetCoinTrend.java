@@ -1,63 +1,92 @@
 import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.core.AbstractProcessor;
 import com.hazelcast.jet.core.DAG;
 import com.hazelcast.jet.core.Edge;
 import com.hazelcast.jet.core.Processor;
-import com.hazelcast.jet.core.ProcessorMetaSupplier;
 import com.hazelcast.jet.core.ProcessorSupplier;
-import com.hazelcast.jet.core.processor.SinkProcessors;
-import com.hazelcast.jet.stream.IStreamList;
+import com.hazelcast.jet.core.TimestampKind;
+import com.hazelcast.jet.core.Vertex;
+import com.hazelcast.jet.core.WindowDefinition;
+import com.hazelcast.jet.core.processor.DiagnosticProcessors;
+import com.hazelcast.jet.datamodel.TimestampedEntry;
+import com.hazelcast.jet.function.DistributedFunction;
+import com.hazelcast.jet.function.DistributedSupplier;
+import com.hazelcast.jet.function.DistributedToDoubleFunction;
+import com.hazelcast.jet.function.DistributedToLongFunction;
 
-import java.util.Collection;
-import java.util.Collections;
+import static com.hazelcast.jet.aggregate.AggregateOperations.averagingDouble;
+import static com.hazelcast.jet.core.ProcessorMetaSupplier.dontParallelize;
+import static com.hazelcast.jet.core.ProcessorSupplier.*;
+import static com.hazelcast.jet.core.WatermarkEmissionPolicy.emitByFrame;
+import static com.hazelcast.jet.core.WatermarkPolicies.withFixedLag;
+import static com.hazelcast.jet.core.processor.Processors.aggregateToSlidingWindowP;
+import static com.hazelcast.jet.core.processor.Processors.insertWatermarksP;
 
 public class JetCoinTrend {
     public static void main(String[] args) throws Exception {
 
-        ProcessorMetaSupplier psReddit = ProcessorMetaSupplier.dontParallelize(new RedditSource());
-        ProcessorMetaSupplier psTwitter = ProcessorMetaSupplier.dontParallelize(new TwitterSource());
-
         DAG dag = new DAG();
-        dag.newVertex("twitter", psTwitter);
-        dag.newVertex("reddit", psReddit);
-        dag.newVertex("consume", ProcessorMetaSupplier.dontParallelize(new ProcessorSupplier() {
-            @Override
-            public Collection<? extends Processor> get(int count) {
-                AbstractProcessor processor = new AbstractProcessor() {
-                    @Override
-                    protected boolean tryProcess(int ordinal, Object item) {
-                        if (ordinal == 0) {
-                            return tryEmit(item);
-                        } else {
-                            return tryEmit(item);
-                        }
+        Vertex twitterSource = dag.newVertex("twitter", dontParallelize(new TwitterSource()));
+        Vertex redditSource = dag.newVertex("reddit", dontParallelize(new RedditSource()));
+        Vertex relevance = dag.newVertex("relevance", of(RelevanceProcessor::new));
+        Vertex sentiment = dag.newVertex("sentiment", of(SentimentProcessor::new));
 
-                    }
-                };
-                return Collections.singletonList(processor);
-            }
-        }));
-        dag.edge(Edge.from(dag.getVertex("twitter")).to(dag.getVertex("consume"), 0));
-        dag.edge(Edge.from(dag.getVertex("reddit")).to(dag.getVertex("consume"), 0));
-        dag.newVertex("sink", SinkProcessors.writeListP("counts"));
-        dag.edge(Edge.between(dag.getVertex("consume"), dag.getVertex("sink")));
+        WindowDefinition slidingWindowDef1Min = WindowDefinition.slidingWindowDef(60000, 5000);
+        WindowDefinition slidingWindowDef5Min = WindowDefinition.slidingWindowDef(300000, 60000);
+        WindowDefinition slidingWindowDef15Min = WindowDefinition.slidingWindowDef(900000, 300000);
+
+        DistributedSupplier<Processor> insertWMP = insertWatermarksP((DistributedToLongFunction<TimestampedEntry<String, Double>>) TimestampedEntry::getTimestamp, withFixedLag(5000), emitByFrame(slidingWindowDef1Min));
+
+        Vertex insertWm = dag.newVertex("insertWm", insertWMP).localParallelism(1);
+
+        Vertex aggregateTrend1Min = dag.newVertex("aggregateTrend1Min", aggregateToSlidingWindowP(TimestampedEntry::getKey,
+                TimestampedEntry::getTimestamp,
+                TimestampKind.EVENT,
+                slidingWindowDef1Min, averagingDouble( (DistributedToDoubleFunction<TimestampedEntry<String, Double>>) TimestampedEntry::getValue)
+                ));
+
+        Vertex aggregateTrend5Min = dag.newVertex("aggregateTrend5Min", aggregateToSlidingWindowP(TimestampedEntry::getKey,
+                TimestampedEntry::getTimestamp,
+                TimestampKind.EVENT,
+                slidingWindowDef5Min, averagingDouble(
+                        (DistributedToDoubleFunction<TimestampedEntry<String, Double>>) TimestampedEntry::getValue)
+                ));
+
+        Vertex aggregateTrend15Min = dag.newVertex("aggregateTrend15Min", aggregateToSlidingWindowP(TimestampedEntry::getKey,
+                TimestampedEntry::getTimestamp,
+                TimestampKind.EVENT,
+                slidingWindowDef15Min, averagingDouble(
+                        (DistributedToDoubleFunction<TimestampedEntry<String, Double>>) TimestampedEntry::getValue)
+                ));
+
+
+        Vertex sink = dag.newVertex("sink", DiagnosticProcessors.writeLoggerP());
+
+        dag.edge(Edge.between(twitterSource, insertWm));
+        dag.edge(Edge.between(insertWm, relevance));
+        dag.edge(Edge.between(relevance, sentiment));
+        dag.edge(Edge.from(sentiment,0).to(aggregateTrend1Min).partitioned(
+                (DistributedFunction<TimestampedEntry<String, Double>, Object>) TimestampedEntry::getKey));
+        dag.edge(Edge.from(sentiment,1).to(aggregateTrend5Min).partitioned(
+                (DistributedFunction<TimestampedEntry<String, Double>, Object>) TimestampedEntry::getKey));
+        dag.edge(Edge.from(sentiment,2).to(aggregateTrend15Min).partitioned(
+                (DistributedFunction<TimestampedEntry<String, Double>, Object>) TimestampedEntry::getKey));
+        dag.edge(Edge.from(aggregateTrend1Min).to(sink, 0));
+        dag.edge(Edge.from(aggregateTrend5Min).to(sink, 1));
+        dag.edge(Edge.from(aggregateTrend15Min).to(sink, 2));
+
 
         // Start Jet, populate the input list
         JetInstance jet = Jet.newJetInstance();
         try {
 
             // Perform the computation
-            jet.newJob(dag);
+            jet.newJob(dag).join();
 
-            // Check the results
-            IStreamList<Object> list = jet.getList("counts");
-
-            Thread.sleep(30000);
-            list.stream().forEach(System.out::println);
         } finally {
             Jet.shutdownAll();
         }
     }
+
 
 }
