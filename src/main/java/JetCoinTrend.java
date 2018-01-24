@@ -44,11 +44,7 @@ public class JetCoinTrend {
             }
         });
 
-        TwitterSource twitterSource = new TwitterSource("a",
-                "v",
-                "c",
-                "d");
-        ProcessorMetaSupplier psTwitter = ProcessorMetaSupplier.dontParallelize(twitterSource);
+        ProcessorMetaSupplier psTwitter = ProcessorMetaSupplier.dontParallelize(new TwitterSource());
 
         DAG dag = new DAG();
         dag.newVertex("twitter", psTwitter);

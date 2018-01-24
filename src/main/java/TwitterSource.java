@@ -11,24 +11,26 @@ import com.twitter.hbc.core.processor.StringDelimitedProcessor;
 import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class TwitterSource implements ProcessorSupplier {
 
-    private String consumerKey;
-    private String consumerSecret;
-    private String token;
-    private String secret;
+    private BlockingQueue<String> queue = new LinkedBlockingQueue<>(10000);
 
-    public TwitterSource(String consumerKey, String consumerSecret,
-                         String token, String secret) throws InterruptedException {
-        this.consumerKey = consumerKey;
-        this.consumerSecret = consumerSecret;
-        this.token = token;
-        this.secret = secret;
+    private Properties secret;
+
+    TwitterSource() {
+        secret = new Properties();
+        try {
+            secret.load(this.getClass().getResourceAsStream("twitter-security.properties"));
+        } catch (IOException e) {
+            //TODO log it here
+        }
     }
 
     @Override
@@ -36,7 +38,6 @@ public class TwitterSource implements ProcessorSupplier {
         AbstractProcessor abstractProcessor = new AbstractProcessor() {
 
             private BlockingQueue<String> queue = new LinkedBlockingQueue<>(10000);
-
 
             private BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>(10000);
 
@@ -48,14 +49,19 @@ public class TwitterSource implements ProcessorSupplier {
                 // add some track terms
                 endpoint.trackTerms(Lists.newArrayList("bitcoin", "#btc"));
 
-                Authentication auth = new OAuth1(consumerKey, consumerSecret, token, secret);
+                String consumerKey = secret.getProperty("consumerKey");
+                String consumerSecret = secret.getProperty("consumerSecret");
+                String token = secret.getProperty("token");
+                String tokenSecret = secret.getProperty("tokenSecret");
+
+                Authentication auth = new OAuth1(consumerKey, consumerSecret, token, tokenSecret);
 
                 Client client = new ClientBuilder()
                         .hosts(Constants.STREAM_HOST)
                         .endpoint(endpoint)
                         .authentication(auth)
                         .processor(new StringDelimitedProcessor(queue))
-                        .eventMessageQueue(eventQueue)                          // optional: use this if you want to process client events
+                        .eventMessageQueue(eventQueue)// optional: use this if you want to process client events
                         .build();
 
                 client.connect();
@@ -75,7 +81,6 @@ public class TwitterSource implements ProcessorSupplier {
                     }
                 });
                 thread.start();
-
 
             }
 
