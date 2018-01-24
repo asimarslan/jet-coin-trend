@@ -44,38 +44,11 @@ public class JetCoinTrend {
             }
         });
 
-        ProcessorMetaSupplier psTwitter = ProcessorMetaSupplier.dontParallelize(new ProcessorSupplier() {
-            @Override
-            public Collection<? extends Processor> get(int count) {
-                AbstractProcessor abstractProcessor = new AbstractProcessor() {
-
-                    private Stream<String> stream;
-
-                    @Override
-                    protected void init(Context context) throws Exception {
-                        super.init(context);
-                        stream = Stream.generate(() -> "twiiter string");
-                    }
-
-
-                    @Override
-                    public boolean complete() {
-
-                        return emitFromTraverser(traverseStream(stream));
-                    }
-
-                };
-                return Collections.singleton(abstractProcessor);
-
-            }
-        });
-
+        ProcessorMetaSupplier psTwitter = ProcessorMetaSupplier.dontParallelize(new TwitterSource("key", "secret", "token", "secret"));
 
         DAG dag = new DAG();
         dag.newVertex("twitter", psTwitter);
         dag.newVertex("reddit", psReddit);
-
-
         dag.newVertex("consume", ProcessorMetaSupplier.dontParallelize(new ProcessorSupplier() {
             @Override
             public Collection<? extends Processor> get(int count) {
@@ -93,17 +66,9 @@ public class JetCoinTrend {
                 return Collections.singletonList(processor);
             }
         }));
-
-
-        Edge twitEdge = Edge.from(dag.getVertex("twitter")).to(dag.getVertex("consume"), 0);
-        Edge redditEdge = Edge.from(dag.getVertex("reddit")).to(dag.getVertex("consume"), 1);
-
-        dag.edge(twitEdge);
-        dag.edge(redditEdge);
-
-
+        dag.edge(Edge.from(dag.getVertex("twitter")).to(dag.getVertex("consume"), 0));
+        dag.edge(Edge.from(dag.getVertex("reddit")).to(dag.getVertex("consume"), 1));
         dag.newVertex("sink", SinkProcessors.writeListP("counts"));
-
         dag.edge(Edge.between(dag.getVertex("consume"), dag.getVertex("sink")));
 
         // Start Jet, populate the input list
@@ -123,7 +88,4 @@ public class JetCoinTrend {
         }
     }
 
-    static double nlpCompute(String word) {
-        return 2.0;
-    }
 }

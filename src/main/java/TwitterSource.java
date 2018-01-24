@@ -10,19 +10,18 @@ import com.twitter.hbc.core.processor.StringDelimitedProcessor;
 import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.stream.Stream;
-
-import static com.hazelcast.jet.Traversers.traverseStream;
 
 public class TwitterSource implements ProcessorSupplier {
 
+    private BlockingQueue<String> queue = new LinkedBlockingQueue<>(10000);
+
     public TwitterSource(String consumerKey, String consumerSecret, String token, String secret) {
 
-        BlockingQueue<String> queue = new LinkedBlockingQueue<>(10000);
+
         StatusesFilterEndpoint endpoint = new StatusesFilterEndpoint();
 
         // add some track terms
@@ -37,43 +36,35 @@ public class TwitterSource implements ProcessorSupplier {
                 .processor(new StringDelimitedProcessor(queue))
                 .build();
 
-        for (int msgRead = 0; msgRead < 1000; msgRead++) {
-            String msg = null;
-            try {
-                msg = queue.take();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            System.out.println(msg);
-        }
 
     }
 
     @Override
     public Collection<? extends Processor> get(int count) {
-        ArrayList<Processor> processors = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            AbstractProcessor abstractProcessor = new AbstractProcessor() {
+        AbstractProcessor abstractProcessor = new AbstractProcessor() {
 
-                private Stream<String> stream;
+            @Override
+            protected void init(Context context) throws Exception {
+                super.init(context);
+            }
 
-                @Override
-                protected void init(Context context) throws Exception {
-                    super.init(context);
-                    stream = Stream.generate(() -> "test1");
+            @Override
+            public boolean complete() {
+                for (int i = 0; i < 100; i++) {
+                    String message = queue.poll();
+                    if (message != null) {
+                        if (!tryEmit(message)) {
+                            return false;
+                        }
+                    } else {
+                        return false;
+                    }
                 }
+                return false;
+            }
 
-
-                @Override
-                public boolean complete() {
-
-                    return emitFromTraverser(traverseStream(stream));
-                }
-
-            };
-            processors.add(abstractProcessor);
-        }
-        return processors;
+        };
+        return Collections.singleton(abstractProcessor);
 
     }
 }
