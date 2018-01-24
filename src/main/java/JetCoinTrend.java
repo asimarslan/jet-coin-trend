@@ -63,6 +63,7 @@ public class JetCoinTrend {
         Vertex sink = dag.newVertex("sink", DiagnosticProcessors.writeLoggerP());
 
         dag.edge(Edge.between(twitterSource, insertWm));
+        dag.edge(Edge.between(redditSource, insertWm));
         dag.edge(Edge.between(insertWm, relevance));
         dag.edge(Edge.between(relevance, sentiment));
         dag.edge(Edge.from(sentiment,0).to(aggregateTrend1Min).partitioned(
