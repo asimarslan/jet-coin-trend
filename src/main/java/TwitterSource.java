@@ -1,4 +1,3 @@
-import com.google.common.collect.Lists;
 import com.hazelcast.jet.core.AbstractProcessor;
 import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.core.ProcessorSupplier;
@@ -14,8 +13,11 @@ import com.twitter.hbc.httpclient.auth.OAuth1;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -47,7 +49,13 @@ public class TwitterSource implements ProcessorSupplier {
                 StatusesFilterEndpoint endpoint = new StatusesFilterEndpoint();
 
                 // add some track terms
-                endpoint.trackTerms(Lists.newArrayList("bitcoin", "#btc"));
+
+                List<String> terms = new ArrayList<>();
+                for (Map.Entry<String, List<String>> entry:CoinDefs.coinMap.entrySet()){
+                    terms.add(entry.getKey());
+                    terms.addAll(entry.getValue());
+                }
+                endpoint.trackTerms(terms);
 
                 String consumerKey = secret.getProperty("consumerKey");
                 String consumerSecret = secret.getProperty("consumerSecret");
@@ -66,17 +74,14 @@ public class TwitterSource implements ProcessorSupplier {
 
                 client.connect();
 
-                Thread thread = new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        while (true) {
-                            try {
-                                Event take = eventQueue.take();
-                                System.out.println(take.getMessage());
-                                System.out.println(take.getEventType());
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
+                Thread thread = new Thread(() -> {
+                    while (true) {
+                        try {
+                            Event take = eventQueue.take();
+                            System.out.println(take.getMessage());
+                            System.out.println(take.getEventType());
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
                         }
                     }
                 });

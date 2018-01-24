@@ -1,2 +1,2 @@
 # jet-coin-trend
-Cryptocoin trending from twitter and Reddit processed on Hazelcast Jet
+Cryptocurrency Sentimental Real-Time Trending Analysis from twitter and Reddit

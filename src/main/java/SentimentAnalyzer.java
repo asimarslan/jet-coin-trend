@@ -85,15 +85,4 @@ public class SentimentAnalyzer {
         return sentences;
     }
 
-
-    public static void main(String[] args) {
-        SentimentAnalyzer analyzer = new SentimentAnalyzer();
-
-        List<CoreMap> annotations = analyzer.getAnnotations("I am very happy funny super duper crazy person.");
-
-        double sentimentType = analyzer.getSentimentClass(annotations);
-        System.out.println("Sentiment: " + sentimentType);
-        System.out.println("Sentiment score: " + analyzer.getScore(annotations, sentimentType));
-    }
-
 }
