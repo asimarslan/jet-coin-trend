@@ -80,12 +80,13 @@ public class RedditSource implements ProcessorSupplier {
                 coins = new ArrayList<String>(){{
                     add("Bitcoin");
                     add("Etherum");
+                    add("Ripple");
                     add("Bitcoincash");
                     add("Cardano");
                     add("Litecoin");
                     add("Stellar");
-                    add("NEM");
-                    add("EOS");
+                    add("nem");
+                    add("eos");
                 }};
                 UserAgent userAgent = new UserAgent("bot", "com.example.usefulbot", "v0.1", "mattbdean");
                 // Create our credentials
