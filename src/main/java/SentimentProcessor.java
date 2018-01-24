@@ -24,11 +24,7 @@ public class SentimentProcessor extends AbstractProcessor {
         TimestampedEntry<String, String> entry = (TimestampedEntry<String, String>) item;
 
         String coinType = entry.getKey();
-        String tweetJson = entry.getValue();
-
-        System.out.println(tweetJson);
-        JSONObject jsonObject = new JSONObject(tweetJson);
-        String tweetText = jsonObject.getString("text");
+        String tweetText = entry.getValue();
 
         List<CoreMap> annotations = analyzer.getAnnotations(tweetText);
 
