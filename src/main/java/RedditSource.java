@@ -47,7 +47,7 @@ public class RedditSource implements ProcessorSupplier {
         AbstractProcessor abstractProcessor = new AbstractProcessor() {
             Set<String> ids = Collections.newSetFromMap(new ConcurrentHashMap<>());
             RedditClient reddit;
-
+            List<String> coins;
             public List<String> getSubmissionListForSubreddit(String name) {
                 DefaultPaginator<Submission> paginator = getPaginatorForSubreddit(name);
                 List<Submission> submissions = paginator.accumulateMerged(-1);
@@ -58,6 +58,7 @@ public class RedditSource implements ProcessorSupplier {
                 return reddit
                         .subreddit(subredditName)
                         .posts()
+                        .limit(20)
                         .build();
 
             }
@@ -69,12 +70,24 @@ public class RedditSource implements ProcessorSupplier {
                     ids.add(submission.getId());
                     texts.add(submission.getTitle() + "." + submission.getSelfText());
                 }
+                ids.clear();
                 return texts;
             }
 
             @Override
             protected void init(Context context) throws Exception {
                 super.init(context);
+                coins = new ArrayList<String>(){{
+                    add("Bitcoin");
+                    add("Etherum");
+                    add("Ripple");
+                    add("Bitcoincash");
+                    add("Cardano");
+                    add("Litecoin");
+                    add("Stellar");
+                    add("nem");
+                    add("eos");
+                }};
                 UserAgent userAgent = new UserAgent("bot", "com.example.usefulbot", "v0.1", "mattbdean");
                 // Create our credentials
                 String username = secret.getProperty("username");
@@ -94,13 +107,21 @@ public class RedditSource implements ProcessorSupplier {
 
             @Override
             public boolean complete() {
-                List<String> strings = getSubmissionListForSubreddit("Bitcoin");
-                for (String string : strings) {
-                    if (!tryEmit(string)) {
-                        return false;
+                try {
+                    Thread.sleep(15000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                for(String coin:coins){
+                    List<String> strings = getSubmissionListForSubreddit(coin);
+                    for (String string : strings) {
+                        if (!tryEmit(string)) {
+                            return false;
+                        }
                     }
                 }
                 return false;
+
             }
 
         };
