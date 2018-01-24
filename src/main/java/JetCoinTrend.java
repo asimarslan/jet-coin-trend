@@ -11,16 +11,11 @@ import com.hazelcast.jet.stream.IStreamList;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.stream.Stream;
-
-import static com.hazelcast.jet.Traversers.traverseStream;
 
 public class JetCoinTrend {
     public static void main(String[] args) throws Exception {
 
-        RedditSource redditSource = new RedditSource("a", "b", "c", "d");
-        ProcessorMetaSupplier psReddit = ProcessorMetaSupplier.dontParallelize(redditSource);
-
+        ProcessorMetaSupplier psReddit = ProcessorMetaSupplier.dontParallelize(new RedditSource());
         ProcessorMetaSupplier psTwitter = ProcessorMetaSupplier.dontParallelize(new TwitterSource());
 
         DAG dag = new DAG();
@@ -44,7 +39,7 @@ public class JetCoinTrend {
             }
         }));
         dag.edge(Edge.from(dag.getVertex("twitter")).to(dag.getVertex("consume"), 0));
-        dag.edge(Edge.from(dag.getVertex("reddit")).to(dag.getVertex("consume"), 1));
+        dag.edge(Edge.from(dag.getVertex("reddit")).to(dag.getVertex("consume"), 0));
         dag.newVertex("sink", SinkProcessors.writeListP("counts"));
         dag.edge(Edge.between(dag.getVertex("consume"), dag.getVertex("sink")));
 

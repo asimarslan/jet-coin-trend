@@ -19,6 +19,7 @@ import net.dean.jraw.oauth.Credentials;
 import net.dean.jraw.oauth.OAuthHelper;
 import net.dean.jraw.pagination.DefaultPaginator;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,46 +30,44 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public class RedditSource implements ProcessorSupplier {
 
-    private String username;
-    private String password;
-    private String clientId;
-    private String ClientSecret;
+    private Properties secret;
 
-    public RedditSource(String username, String password,
-                         String clientId, String ClientSecret) throws InterruptedException {
-        this.username = username;
-        this.password = password;
-        this.clientId = clientId;
-        this.ClientSecret = ClientSecret;
+    public RedditSource() {
+        try {
+            secret = new Properties();
+            secret.load(this.getClass().getResourceAsStream("reddit-security.properties"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 
     @Override
     public Collection<? extends Processor> get(int count) {
         AbstractProcessor abstractProcessor = new AbstractProcessor() {
-            Set<String> ids =  Collections.newSetFromMap(new ConcurrentHashMap<>());
+            Set<String> ids = Collections.newSetFromMap(new ConcurrentHashMap<>());
             RedditClient reddit;
 
-            public List<String> getSubmissionListForSubreddit(String name){
+            public List<String> getSubmissionListForSubreddit(String name) {
                 DefaultPaginator<Submission> paginator = getPaginatorForSubreddit(name);
                 List<Submission> submissions = paginator.accumulateMerged(-1);
                 return analyzeTitleAndContents(submissions);
             }
 
-            public  DefaultPaginator<Submission> getPaginatorForSubreddit(String subredditName){
-                return   reddit
+            public DefaultPaginator<Submission> getPaginatorForSubreddit(String subredditName) {
+                return reddit
                         .subreddit(subredditName)
                         .posts()
                         .build();
 
             }
 
-            public  List<String> analyzeTitleAndContents(List<Submission> submissions){
-                List<String> texts =new ArrayList<String>();
+            public List<String> analyzeTitleAndContents(List<Submission> submissions) {
+                List<String> texts = new ArrayList<String>();
                 for (Submission submission : submissions) {
                     if (ids.contains(submission.getId())) continue;
                     ids.add(submission.getId());
-                    texts.add(submission.getTitle()+"." +submission.getSelfText());
+                    texts.add(submission.getTitle() + "." + submission.getSelfText());
                 }
                 return texts;
             }
@@ -78,15 +77,18 @@ public class RedditSource implements ProcessorSupplier {
                 super.init(context);
                 UserAgent userAgent = new UserAgent("bot", "com.example.usefulbot", "v0.1", "mattbdean");
                 // Create our credentials
-                Credentials credentials = Credentials.script(username, password,
-                        clientId, ClientSecret);
+                String username = secret.getProperty("username");
+                String password = secret.getProperty("password");
+                String clientId = secret.getProperty("clientId");
+                String clientSecret = secret.getProperty("clientSecret");
+                Credentials credentials = Credentials.script(username, password, clientId, clientSecret);
 
                 // This is what really sends HTTP requests
                 NetworkAdapter adapter = new OkHttpNetworkAdapter(userAgent);
 
                 // Authenticate and get a RedditClient instance
                 reddit = OAuthHelper.automatic(adapter, credentials);
-
+                System.out.println("authenticated to reddit ");
 
             }
 
@@ -94,7 +96,7 @@ public class RedditSource implements ProcessorSupplier {
             public boolean complete() {
                 List<String> strings = getSubmissionListForSubreddit("Bitcoin");
                 for (String string : strings) {
-                    if(!tryEmit(string)){
+                    if (!tryEmit(string)) {
                         return false;
                     }
                 }

@@ -24,18 +24,18 @@ public class SentimentAnalyzer {
     public double getSentimentClass(List<CoreMap> sentences) {
         double sum = 0;
         int numberOfSentences = 0;
-        for (CoreMap sentence: sentences) {
+        for (CoreMap sentence : sentences) {
             Tree sentiments = sentence.get(SentimentCoreAnnotations.SentimentAnnotatedTree.class);
             int predictedClass = RNNCoreAnnotations.getPredictedClass(sentiments);
 
             if (predictedClass != 2) {
-                sum+=predictedClass;
+                sum += predictedClass;
                 numberOfSentences++;
             }
         }
         if (numberOfSentences == 0)
             return 0;
-        return (sum / numberOfSentences - 2)/2;
+        return (sum / numberOfSentences - 2) / 2;
     }
 
     public double getScore(List<CoreMap> sentences, double sentimentType) {
@@ -44,7 +44,7 @@ public class SentimentAnalyzer {
         double sum3 = 0;
         double sum4 = 0;
         int numberOfSentences = 0;
-        for (CoreMap sentence: sentences) {
+        for (CoreMap sentence : sentences) {
             Tree sentiments = sentence.get(SentimentCoreAnnotations.SentimentAnnotatedTree.class);
             int predictedClass = RNNCoreAnnotations.getPredictedClass(sentiments);
 

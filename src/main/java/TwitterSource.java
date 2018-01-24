@@ -20,8 +20,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class TwitterSource implements ProcessorSupplier {
 
-    private BlockingQueue<String> queue = new LinkedBlockingQueue<>(10000);
-
     private Properties secret;
 
     TwitterSource() {
