@@ -10,6 +10,7 @@ import com.twitter.hbc.core.event.Event;
 import com.twitter.hbc.core.processor.StringDelimitedProcessor;
 import com.twitter.hbc.httpclient.auth.Authentication;
 import com.twitter.hbc.httpclient.auth.OAuth1;
+import org.json.JSONObject;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -87,7 +88,9 @@ public class TwitterSource implements ProcessorSupplier {
                 for (int i = 0; i < 100; i++) {
                     String message = queue.poll();
                     if (message != null) {
-                        if (!tryEmit(message)) {
+                        JSONObject jsonObject = new JSONObject(message);
+                        String text = jsonObject.getString("text");
+                        if (!tryEmit(text.toLowerCase())) {
                             return false;
                         }
                     } else {
