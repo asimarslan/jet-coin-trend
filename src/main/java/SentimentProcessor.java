@@ -1,13 +1,9 @@
-import com.hazelcast.jet.Util;
 import com.hazelcast.jet.core.AbstractProcessor;
-import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.datamodel.TimestampedEntry;
 import edu.stanford.nlp.util.CoreMap;
-import twitter4j.JSONObject;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Map;
 
 public class SentimentProcessor extends AbstractProcessor {
 
@@ -31,9 +27,12 @@ public class SentimentProcessor extends AbstractProcessor {
         double sentimentType = analyzer.getSentimentClass(annotations);
         double sentimentScore = analyzer.getScore(annotations, sentimentType);
 
-        double score=sentimentType * sentimentScore;
+        double score = sentimentType * sentimentScore;
 
         TimestampedEntry<String, Double> result = new TimestampedEntry<>(entry.getTimestamp(), coinType, score);
-        return tryEmit(result);
+//        System.out.println(tweetText + " " + result.getKey() + " " + score);
+        System.out.println(result.getKey() + " " + score);
+        tryEmit(result);
+        return true;
     }
 }

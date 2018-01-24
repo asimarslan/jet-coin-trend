@@ -3,17 +3,18 @@ import com.hazelcast.jet.datamodel.TimestampedEntry;
 
 import javax.annotation.Nonnull;
 
-public class RelevanceProcessor extends AbstractProcessor{
+public class RelevanceProcessor extends AbstractProcessor {
 
 
     @Override
     protected boolean tryProcess(int ordinal, @Nonnull Object item) throws Exception {
-        String content = (String)item;
+        TimestampedEntry<String, String> content = (TimestampedEntry<String, String>) item;
 
-        for (String cointype: CoinDefs.coinMap.keySet()) {
+        for (String cointype : CoinDefs.coinMap.keySet()) {
             for (String keyword : CoinDefs.coinMap.get(cointype)) {
-                if (content.contains(keyword)) {
-                    TimestampedEntry<String, String> entry = new TimestampedEntry<>(1, cointype, content);
+                if (content.getKey().contains(keyword)) {
+                    TimestampedEntry<String, String> entry = new TimestampedEntry<>(content.getTimestamp(), cointype, content.getKey());
+//                    System.out.println("content = " + content.getKey() + " " + cointype);
                     tryEmit(entry);
                 }
             }

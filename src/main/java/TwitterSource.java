@@ -2,6 +2,7 @@ import com.google.common.collect.Lists;
 import com.hazelcast.jet.core.AbstractProcessor;
 import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.core.ProcessorSupplier;
+import com.hazelcast.jet.datamodel.TimestampedEntry;
 import com.twitter.hbc.ClientBuilder;
 import com.twitter.hbc.core.Client;
 import com.twitter.hbc.core.Constants;
@@ -90,7 +91,9 @@ public class TwitterSource implements ProcessorSupplier {
                     if (message != null) {
                         JSONObject jsonObject = new JSONObject(message);
                         String text = jsonObject.getString("text");
-                        if (!tryEmit(text.toLowerCase())) {
+                        TimestampedEntry<String, String> timestampedEntry = new TimestampedEntry<>(System.currentTimeMillis(), text.toLowerCase(), "");
+//                        System.out.println(">>>> >>>> " + text.toLowerCase());
+                        if (!tryEmit(timestampedEntry)) {
                             return false;
                         }
                     } else {
