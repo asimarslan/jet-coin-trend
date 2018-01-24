@@ -1,62 +1,117 @@
 import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
-import com.hazelcast.jet.Pipeline;
-import com.hazelcast.jet.Sinks;
-import com.hazelcast.jet.Sources;
 import com.hazelcast.jet.core.AbstractProcessor;
+import com.hazelcast.jet.core.DAG;
+import com.hazelcast.jet.core.Edge;
 import com.hazelcast.jet.core.Processor;
 import com.hazelcast.jet.core.ProcessorMetaSupplier;
 import com.hazelcast.jet.core.ProcessorSupplier;
+import com.hazelcast.jet.core.processor.SinkProcessors;
 import com.hazelcast.jet.stream.IStreamList;
 
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.stream.Stream;
 
 import static com.hazelcast.jet.Traversers.traverseStream;
 
 public class JetCoinTrend {
     public static void main(String[] args) throws Exception {
-        Pipeline p = Pipeline.create();
-        ProcessorMetaSupplier ps = ProcessorMetaSupplier.of(new ProcessorSupplier() {
+
+        ProcessorMetaSupplier psReddit = ProcessorMetaSupplier.dontParallelize(new ProcessorSupplier() {
             @Override
             public Collection<? extends Processor> get(int count) {
-                ArrayList<Processor> processors = new ArrayList<>(count);
-                for (int i = 0; i < count; i++) {
-                    AbstractProcessor abstractProcessor = new AbstractProcessor() {
+                AbstractProcessor abstractProcessor = new AbstractProcessor() {
 
-                        private Stream<String> stream;
+                    private Stream<String> stream;
 
-                        @Override
-                        protected void init(Context context) throws Exception {
-                            super.init(context);
-                            stream = Stream.generate(() -> "test1");
-                        }
+                    @Override
+                    protected void init(Context context) throws Exception {
+                        super.init(context);
+                        stream = Stream.generate(() -> "reddit string");
+                    }
 
 
-                        @Override
-                        public boolean complete() {
+                    @Override
+                    public boolean complete() {
 
-                            return emitFromTraverser(traverseStream(stream));
-                        }
+                        return emitFromTraverser(traverseStream(stream));
+                    }
 
-                    };
-                    processors.add(abstractProcessor);
-                }
-                return processors;
+                };
+                return Collections.singleton(abstractProcessor);
 
             }
         });
-        p.drawFrom(Sources.<String>fromProcessor("sancar", ps))
-                .map(JetCoinTrend::nlpCompute)
-                .drainTo(Sinks.list("counts"));
+
+        ProcessorMetaSupplier psTwitter = ProcessorMetaSupplier.dontParallelize(new ProcessorSupplier() {
+            @Override
+            public Collection<? extends Processor> get(int count) {
+                AbstractProcessor abstractProcessor = new AbstractProcessor() {
+
+                    private Stream<String> stream;
+
+                    @Override
+                    protected void init(Context context) throws Exception {
+                        super.init(context);
+                        stream = Stream.generate(() -> "twiiter string");
+                    }
+
+
+                    @Override
+                    public boolean complete() {
+
+                        return emitFromTraverser(traverseStream(stream));
+                    }
+
+                };
+                return Collections.singleton(abstractProcessor);
+
+            }
+        });
+
+
+        DAG dag = new DAG();
+        dag.newVertex("twitter", psTwitter);
+        dag.newVertex("reddit", psReddit);
+
+
+        dag.newVertex("consume", ProcessorMetaSupplier.dontParallelize(new ProcessorSupplier() {
+            @Override
+            public Collection<? extends Processor> get(int count) {
+                AbstractProcessor processor = new AbstractProcessor() {
+                    @Override
+                    protected boolean tryProcess(int ordinal, Object item) {
+                        if (ordinal == 0) {
+                            return tryEmit(1 + " twitter");
+                        } else {
+                            return tryEmit(2 + " reddit");
+                        }
+
+                    }
+                };
+                return Collections.singletonList(processor);
+            }
+        }));
+
+
+        Edge twitEdge = Edge.from(dag.getVertex("twitter")).to(dag.getVertex("consume"), 0);
+        Edge redditEdge = Edge.from(dag.getVertex("reddit")).to(dag.getVertex("consume"), 1);
+
+        dag.edge(twitEdge);
+        dag.edge(redditEdge);
+
+
+        dag.newVertex("sink", SinkProcessors.writeListP("counts"));
+
+        dag.edge(Edge.between(dag.getVertex("consume"), dag.getVertex("sink")));
 
         // Start Jet, populate the input list
         JetInstance jet = Jet.newJetInstance();
         try {
 
             // Perform the computation
-            jet.newJob(p);
+            jet.newJob(dag);
 
             // Check the results
             IStreamList<Object> list = jet.getList("counts");
